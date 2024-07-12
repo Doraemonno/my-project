@@ -62,3 +62,4 @@ class VacationTrackerCdkStack(Stack):
 
         # /vacations/approvals Resource
         # vacations_approvals.add_method('GET', lambda_integration) to be made Prayag backup
+        # vacations_approvals.add_method('GET', lambda_integration) to be made Prayag backup
