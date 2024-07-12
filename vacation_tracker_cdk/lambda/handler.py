@@ -1,68 +1,39 @@
 import json
 import boto3
 import os
+from datetime import datetime
 
 dynamodb = boto3.resource('dynamodb')
-table_name = os.environ['TABLE_NAME']
-table = dynamodb.Table(table_name)
-
-vacation_table_name = os.environ['VACATION_TABLE_NAME']
-vacation_table = dynamodb.Table(vacation_table_name)
+table_name = os.environ['VACATION_TABLE_NAME']
+table = dynamodb.Table(table_name)  # type: ignore
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
-    # /manager Routes
-    if event['resource'] == '/manager':
-        if http_method == 'GET':
-            return get_all_items()
-        elif http_method == 'POST':
-            body = json.loads(event['body'])
-            return create_item(body)
     # /vacations Routes
-    elif event['resource'] == '/vacations':
+    if event['resource'] == '/vacations':
         if http_method == 'GET':
-            from_date = event['queryStringParameters'].get('from')
-            to_date = event['queryStringParameters'].get('to')
-            return get_vacations_between_dates(from_date, to_date)
-    # /vacations/approvals Routes
-    elif event['resource'] == '/vacations/approvals':
-        if http_method == 'GET':
-            return get_approved_vacations()
+            return get_vacations_between_dates(event['queryStringParameters'])
+        elif http_method == 'PUT':
+            return create_vacation(event['body'])
+        else:
+            return {"statusCode": 405, "body": json.dumps("Method Not Allowed")}
+    else:
+        return {"statusCode": 404, "body": json.dumps("Resource not found")}
 
-    return {"statusCode": 404, "body": json.dumps("Resource not found")}
-
-# MANAGERS TABLE FUNCTIONS
-def get_all_items():
+# /vacations GET
+def get_vacations_between_dates(query_params):
     try:
-        response = table.scan()
-        items = response.get('Items', [])
-        return {
-            'statusCode': 200,
-            'body': json.dumps(items)
-        }
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps(f"Error getting items: {e}")
-        }
+        from_date = query_params.get('from')
+        to_date = query_params.get('to')
 
-def create_item(body):
-    try:
-        table.put_item(Item=body)
-        return {
-            'statusCode': 201,
-            'body': json.dumps('Item created')
-        }
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps(f"Error creating item: {e}")
-        }
+        if from_date and to_date:
+            try:
+                datetime.fromisoformat(from_date)
+                datetime.fromisoformat(to_date)
+            except ValueError:
+                return {"statusCode": 400, "body": json.dumps("Invalid date format. Use ISO 8601 (YYYY-MM-DD).")}
 
-# VACATION TABLE FUNCTIONS
-def get_vacations_between_dates(from_date, to_date):
-    try:
-        response = vacation_table.scan(
+        response = table.scan(
             FilterExpression="StartDate BETWEEN :from_date AND :to_date",
             ExpressionAttributeValues={
                 ":from_date": from_date,
@@ -73,14 +44,11 @@ def get_vacations_between_dates(from_date, to_date):
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(f"Error scanning items: {e}")}
 
-def get_approved_vacations():
+# /vaactions PUT
+def create_vacation(vacation_data):
     try:
-        response = vacation_table.scan(
-            FilterExpression="isApproved = :is_approved",
-            ExpressionAttributeValues={
-                ":is_approved": True
-            }
-        )
-        return {"statusCode": 200, "body": json.dumps(response['Items'])}
+        vacation_data = json.loads(vacation_data)
+        table.put_item(Item=vacation_data)
+        return {"statusCode": 201, "body": json.dumps("Vacation created successfully!")}
     except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(f"Error scanning items: {e}")}
+        return {"statusCode": 500, "body": json.dumps(f"Error creating vacation: {e}")}
