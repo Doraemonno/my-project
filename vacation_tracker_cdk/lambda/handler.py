@@ -2,6 +2,8 @@ import json
 import boto3
 import os
 from datetime import datetime
+from decimal import Decimal
+
 
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ['VACATION_TABLE_NAME']
@@ -40,7 +42,15 @@ def get_vacations_between_dates(query_params):
                 ":to_date": to_date
             }
         )
-        return {"statusCode": 200, "body": json.dumps(response['Items'])}
+
+        items = response['Items']
+        for item in items:
+            for key, value in item.items():
+                if isinstance(value, Decimal):
+                    item[key] = float(value)
+
+        return {"statusCode": 200, "body": json.dumps(items)}
+
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(f"Error scanning items: {e}")}
 
