@@ -1,9 +1,8 @@
+from decimal import Decimal
 import json
 import boto3
 import os
 from datetime import datetime
-from decimal import Decimal
-
 
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ['VACATION_TABLE_NAME']
@@ -11,18 +10,26 @@ table = dynamodb.Table(table_name)  # type: ignore
 
 def lambda_handler(event, context):
     http_method = event['httpMethod']
-    # /vacations Routes
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    }
+
     if event['resource'] == '/vacations':
         if http_method == 'GET':
-            return get_vacations_between_dates(event['queryStringParameters'])
+            response = get_vacations_between_dates(event['queryStringParameters'])
         elif http_method == 'PUT':
-            return create_vacation(event['body'])
+            response = create_vacation(event['body'])
         else:
-            return {"statusCode": 405, "body": json.dumps("Method Not Allowed")}
+            response = {"statusCode": 405, "body": json.dumps("Method Not Allowed")}
     else:
-        return {"statusCode": 404, "body": json.dumps("Resource not found")}
+        response = {"statusCode": 404, "body": json.dumps("Resource not found")}
 
-# /vacations GET
+    # Add headers to the response
+    response['headers'] = headers
+    return response
+
 def get_vacations_between_dates(query_params):
     try:
         from_date = query_params.get('from')
@@ -43,6 +50,7 @@ def get_vacations_between_dates(query_params):
             }
         )
 
+        # Convert Decimal to float for JSON serialization
         items = response['Items']
         for item in items:
             for key, value in item.items():
@@ -54,7 +62,6 @@ def get_vacations_between_dates(query_params):
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(f"Error scanning items: {e}")}
 
-# /vaactions PUT
 def create_vacation(vacation_data):
     try:
         vacation_data = json.loads(vacation_data)
