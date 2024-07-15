@@ -1,8 +1,7 @@
-from decimal import Decimal
 import json
-import boto3
 import os
-from datetime import datetime
+import boto3
+from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ['VACATION_TABLE_NAME']
@@ -12,55 +11,28 @@ def lambda_handler(event, context):
     http_method = event['httpMethod']
     headers = {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type'
     }
-
     if event['resource'] == '/vacations':
         if http_method == 'GET':
-            response = get_vacations_between_dates(event['queryStringParameters'])
-        elif http_method == 'PUT':
+            response = get_vacations(event['queryStringParameters'])
+        elif http_method == 'POST':
             response = create_vacation(event['body'])
         else:
             response = {"statusCode": 405, "body": json.dumps("Method Not Allowed")}
-    else:
-        response = {"statusCode": 404, "body": json.dumps("Resource not found")}
-
-    # Add headers to the response
     response['headers'] = headers
     return response
 
-def get_vacations_between_dates(query_params):
+def get_vacations(params):
     try:
-        from_date = query_params.get('from')
-        to_date = query_params.get('to')
-
-        if from_date and to_date:
-            try:
-                datetime.fromisoformat(from_date)
-                datetime.fromisoformat(to_date)
-            except ValueError:
-                return {"statusCode": 400, "body": json.dumps("Invalid date format. Use ISO 8601 (YYYY-MM-DD).")}
-
-        response = table.scan(
-            FilterExpression="StartDate BETWEEN :from_date AND :to_date",
-            ExpressionAttributeValues={
-                ":from_date": from_date,
-                ":to_date": to_date
-            }
+        cognito_username = params['congitousername']
+        response = table.query(
+            KeyConditionExpression=Key('congitousername').eq(cognito_username)
         )
-
-        # Convert Decimal to float for JSON serialization
-        items = response['Items']
-        for item in items:
-            for key, value in item.items():
-                if isinstance(value, Decimal):
-                    item[key] = float(value)
-
-        return {"statusCode": 200, "body": json.dumps(items)}
-
+        return {"statusCode": 200, "body": json.dumps(response['Items'])}
     except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(f"Error scanning items: {e}")}
+        return {"statusCode": 500, "body": json.dumps(f"Error retrieving vacations: {e}")}
 
 def create_vacation(vacation_data):
     try:
