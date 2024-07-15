@@ -18,6 +18,10 @@ class VacationTrackerCdkStack(Stack):
                 name='CognitoUsername',
                 type=dynamodb.AttributeType.STRING
             ),
+            sort_key=dynamodb.Attribute(
+                name= 'Date',
+                type= dynamodb.AttributeType.STRING
+            ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY
         )
@@ -33,7 +37,7 @@ class VacationTrackerCdkStack(Stack):
         LeaveTable.grant_read_write_data(lambda_function)
 
         api = apigateway.RestApi(self, 'vacation-api',
-                                 rest_api_name='VacationService',
+                                 rest_api_name='VacationServiceApi',
                                  description='Interactions with DynamoDB tables')
 
         lambda_integration = apigateway.LambdaIntegration(lambda_function,request_templates={"application/json": '{ "statusCode": "200" }'}) # type: ignore

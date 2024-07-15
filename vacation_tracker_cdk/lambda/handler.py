@@ -26,9 +26,9 @@ def lambda_handler(event, context):
 
 def get_vacations(params):
     try:
-        cognito_username = params['congitousername']
+        cognito_username = params['CognitoUsername']  # Adjust to the correct key name
         response = table.query(
-            KeyConditionExpression=Key('congitousername').eq(cognito_username)
+            KeyConditionExpression=Key('CognitoUsername').eq(cognito_username)  # Adjust to the correct attribute name
         )
         return {"statusCode": 200, "body": json.dumps(response['Items'])}
     except Exception as e:
